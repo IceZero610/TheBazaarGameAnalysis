@@ -807,7 +807,9 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
   var RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   
   var LW_POS0=1.0, LW_POSK=4.6;        
-  var LW_NEG0=0.55, LW_NEGK=1.15;      
+  
+  var LW_NEG0=0.45, LW_NEGK=1.70;      
+  var LW_NEG_POW=2;                    
   
   var LW_POS_POW=2;
   var AL_POS0=0.10, AL_POSK=0.72;      
@@ -913,16 +915,19 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       satEl.textContent="线宽 = (搭配分 \u00f7 "+satPos.toFixed(3)+")\u00b2"+
         " \u00b7 \u2265 "+satPos.toFixed(3)+" 一律最粗（约前 5% 的边）"+
         " \u00b7 平方刻度：中等强度的边压到细线，粗线只留给强协同"+
-        " \u00b7 排斥线固定压细 + 半透明（不透明度 \u2264 "+
-        (AL_NEG0+AL_NEGK).toFixed(2)+"）";
+        " \u00b7 排斥线同法：实线 + 粗细编码强度（\u2264 "+
+        (LW_NEG0+LW_NEGK).toFixed(2)+"px），不透明度 \u2264 "+
+        (AL_NEG0+AL_NEGK).toFixed(2);
     }
 
     edges.forEach(function(e){
       e.w = e.kind==="pos" ? Math.min(1, Math.sqrt(e.score/SAT_W_P))
           : Math.min(1, Math.sqrt(e.ns/SAT_W_N));
       
-      e.vw = e.kind==="pos" ? Math.min(1, Math.pow(e.score/satPos, LW_POS_POW))
-           : Math.min(1, e.ns/satNeg);
+      e.vw  = e.kind==="pos" ? Math.min(1, Math.pow(e.score/satPos, LW_POS_POW))
+            : Math.min(1, e.ns/satNeg);
+      e.vwq = e.kind==="pos" ? e.vw
+            : Math.min(1, Math.pow(e.ns/(satNeg>0?satNeg:1), LW_NEG_POW));
     });
 
     var deg={};
@@ -944,7 +949,8 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     edges.forEach(function(e){
       if(!nid[e.a]||!nid[e.b]) return;
       links.push({source:nid[e.a], target:nid[e.b], phi:e.phi, c:e.c, lift:e.lift,
-        score:e.score, ns:e.ns, kind:e.kind, w:e.w, vw:e.vw, enough:e.enough});
+        score:e.score, ns:e.ns, kind:e.kind, w:e.w, vw:e.vw, vwq:e.vwq,
+        enough:e.enough});
     });
     NET.nodes=nodes; NET.links=links;
     NET.nAll=items.length;
@@ -1356,16 +1362,14 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     if(l.kind==="neg"){
       
       ctx.globalAlpha = (AL_NEG0+AL_NEGK*l.vw) * dimf;
-      ctx.lineWidth = (LW_NEG0+LW_NEGK*l.vw)/gs;
+      ctx.lineWidth = (LW_NEG0+LW_NEGK*l.vwq)/gs;
     } else {
       ctx.globalAlpha = (AL_POS0+AL_POSK*l.w) * dimf;
       ctx.lineWidth = (LW_POS0+LW_POSK*l.vw)/gs;   
     }
     ctx.strokeStyle = col;
     ctx.lineCap="round";
-    if(l.kind==="neg") ctx.setLineDash([5/gs,4/gs]);
     ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(t.x,t.y); ctx.stroke();
-    ctx.setLineDash([]);
     ctx.restore();
 
     var idx=l._vi;
@@ -1608,12 +1612,13 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
                                          cutPos:netPosCut(NET_DEF.tPos),
                                          cutNeg:netNegCut(NET_DEF.tNeg),
                                          distMul:NET_DEF.distMul}; },
-                 px:function(l){ return l.kind==="neg" ? (LW_NEG0+LW_NEGK*l.vw)
+                 
+                 px:function(l){ return l.kind==="neg" ? (LW_NEG0+LW_NEGK*l.vwq)
                                                        : (LW_POS0+LW_POSK*l.vw); },
                  alpha:function(l){ return l.kind==="neg" ? (AL_NEG0+AL_NEGK*l.vw)
                                                           : (AL_POS0+AL_POSK*l.w); },
                  scale:function(){ return {satPos:NET.satPos, satNeg:NET.satNeg,
-                                           powPos:LW_POS_POW,
+                                           powPos:LW_POS_POW, powNeg:LW_NEG_POW,
                                            lwPos:[LW_POS0,LW_POSK],
                                            lwNeg:[LW_NEG0,LW_NEGK]}; },
                  
