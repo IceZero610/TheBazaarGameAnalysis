@@ -890,14 +890,14 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     }
     
     NET.noPhi = !(DATA.pairs||[]).some(function(p){ return p.phi!=null; });
-    var edges=[], maxNs=0, negCut=0, degAll={};
+    var edges=[], maxNs=0, degAll={};
     (DATA.pairs||[]).forEach(function(p){
       if(!pick[p.a] || !pick[p.b]) return;     
       var phi=p.phi||0, w=pairW(p.boards);
       
       degAll[p.a]=(degAll[p.a]||0)+1; degAll[p.b]=(degAll[p.b]||0)+1;
       
-      if(phi<0 && !negSignificant(phi)){ negCut++; return; }
+      if(phi<0 && !negSignificant(phi)) return;
       var ns=Math.max(0,-phi)*w; if(ns>maxNs) maxNs=ns;
       edges.push({a:p.a, b:p.b, phi:phi, c:p.boards,
         lift:p.lift==null?1:p.lift, enough:p.enough!==false,
@@ -924,6 +924,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     
     NET.cutMaxN = Math.max(CUT_MIN_N, maxNs*CUT_N_MARGIN);
     NET.negQ = negD;
+    
     var satEl=document.getElementById("netScale");
     if(satEl){
       satEl.textContent="线宽 = (搭配分 \u00f7 "+satPos.toFixed(3)+")\u00b2"+
@@ -932,13 +933,6 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
         " \u00b7 排斥线同法：实线 + 粗细编码强度（\u2264 "+
         (LW_NEG0+LW_NEGK).toFixed(2)+"px），不透明度 \u2264 "+
         (AL_NEG0+AL_NEGK).toFixed(2);
-    }
-    
-    var negRow=document.getElementById("negRow");
-    if(negRow){
-      negRow.title="排斥边需通过独立性检验：|\u03c6| \u2265 "+(NEG_Z/NEG_SE).toFixed(3)+
-        "（\u03c6\u00b7\u221a(N\u22121) \u2265 "+NEG_Z.toFixed(2)+"，BH-FDR "+
-        (M.negFdrQ!=null?M.negFdrQ:0.05)+" 校正）\u00b7 "+negCut+" 条低于此线的边属抽样噪声，不进图";
     }
 
     edges.forEach(function(e){
