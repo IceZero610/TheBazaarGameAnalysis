@@ -609,10 +609,6 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       '</tr>';
     }).join("");
 
-    Array.prototype.forEach.call(document.querySelectorAll("#rows tr"),function(tr){
-      tr.addEventListener("click",function(){ select(tr.getAttribute("data-id")); });
-      tr.addEventListener("dblclick",function(){ activateCard(tr.getAttribute("data-id")); });
-    });
     renderPager(list.length, from, to, pages);
   }
 
@@ -703,12 +699,13 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
 
   function renderDetail(){
     var box=document.getElementById("detail");
-    if(!state.sel){
+    var c=state.sel ? byId[state.sel] : null;
+    
+    if(!c){
       box.innerHTML='<div class="empty">从关联网络或卡牌总表双击一张卡牌<br>'+
         '<span style="font-size:11.5px">将显示它的效果与关联强度</span></div>';
       return;
     }
-    var c=byId[state.sel];
     var all=c.pairs||[];
     
     var pos=all.filter(function(p){return (p.phi||0)>0;})
@@ -1883,6 +1880,28 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     b.addEventListener("click", function(){ setTab(b.getAttribute("data-pane")); });
   });
 
+  
+  var TAP_MS=500, TOGGLE_MS=500, tapId=null, tapT=0, tapTimer=null;
+  document.getElementById("rows").addEventListener("click",function(e){
+    var tr=e.target.closest ? e.target.closest("tr[data-id]") : null;
+    if(!tr) return;
+    var id=tr.getAttribute("data-id"), now=Date.now();
+    if(e.detail===2 || (id===tapId && now-tapT<TAP_MS)){  
+      if(tapTimer){ clearTimeout(tapTimer); tapTimer=null; }
+      tapId=null; tapT=0;
+      activateCard(id);
+      return;
+    }
+    tapId=id; tapT=now;
+    if(state.sel===id){                              
+      tapTimer=setTimeout(function(){
+        tapTimer=null;
+        if(state.sel===id) select(id);               
+      }, TOGGLE_MS);
+    }else{
+      select(id);                                    
+    }
+  });
   
   document.getElementById("q").addEventListener("input",function(e){
     state.q=e.target.value; state.page=1; renderTable();
